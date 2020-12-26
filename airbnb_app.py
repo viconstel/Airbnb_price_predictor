@@ -142,14 +142,16 @@ button_clicked = st.button('Go!')
 
 def create_map(lat, lon):
     api = Overpass()
-    buff_resp = 'rel(' + str(MATCH_NEIRBOORHOOD[neigh]) + '); out geom;'
-    response = api.query(buff_resp)
-    geom = response.elements()[0]
-    bound = [(i[-1], i[0]) for i in geom.geometry()['coordinates'][0]]
-
     # London
     map_london = folium.Map(location=[51.5073219, -0.1276474], zoom_start=10)
-    folium.Polygon(bound, popup=f'Bound of {neigh}').add_to(map_london)
+    
+    if neigh not in ['Barnet', 'Ealing', 'Enfield', 'Islington', 'Lewisham', 'Wandsworth']:
+      buff_resp = 'rel(' + str(MATCH_NEIRBOORHOOD[neigh]) + '); out geom;'
+      response = api.query(buff_resp)
+      geom = response.elements()[0]
+      bound = [(i[-1], i[0]) for i in geom.geometry()['coordinates'][0]]
+      folium.Polygon(bound, popup=f'Bound of {neigh}').add_to(map_london)
+      
     # Add Apart
     folium.Marker([lat, lon], popup="Apartment", tooltip="Apartment",
                   icon=folium.Icon(icon='home', prefix='fa')).add_to(map_london)
