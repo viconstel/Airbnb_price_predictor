@@ -149,7 +149,7 @@ def create_map(lat, lon):
 
     # London
     map_london = folium.Map(location=[51.5073219, -0.1276474], zoom_start=10)
-    folium.Polygon(bound, popup='Bound of neighbourhood').add_to(map_london)
+    folium.Polygon(bound, popup=f'Bound of {neigh}').add_to(map_london)
     # Add Apart
     folium.Marker([lat, lon], popup="Apartment", tooltip="Apartment",
                   icon=folium.Icon(icon='home', prefix='fa')).add_to(map_london)
@@ -193,4 +193,5 @@ if button_clicked:
     st.pyplot(fig)
     st.markdown(ADDITIONAL.format('Map:'), unsafe_allow_html=True)
     create_map(lat, lon)
+    st.markdown(ADDITIONAL.format(f'You entered the coordinates: ({lat}, {lon})'), unsafe_allow_html=True)
     st.markdown(ADDITIONAL.format(f'Distance from center: {round(regressor.distance, 3)}km'), unsafe_allow_html=True)
