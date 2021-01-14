@@ -1,4 +1,4 @@
-## Airbnb price predictor
+## 🇬🇧 Airbnb price predictor
 
 This app helps you set a competitive rental 
 price for your Airbnb property in London.
@@ -13,5 +13,7 @@ it's optimization is reduced to optimizing
 the **MAE** metric by taking the logarithm of the 
 target values.
 
-Demo of this app is available by the link:\
+Demo of this app is available by the link
+(*if it didn't load quickly, you need to
+ wait a little, Heroku needs to wake up*):\
 [Airbnb price predictor](https://nameless-oasis-11721.herokuapp.com/)
