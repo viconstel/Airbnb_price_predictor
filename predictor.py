@@ -1,22 +1,16 @@
 import joblib
-import streamlit as st
 import pandas as pd
 import numpy as np
-import nltk
-from scipy.sparse import hstack
-from nltk.corpus import stopwords
-from nltk.stem.snowball import SnowballStemmer
-import re
 from haversine import haversine
-
-nltk.download('stopwords')
-
-stemmer = SnowballStemmer("english")
 
 
 class Regressor(object):
 
-    def __init__(self):
+    """Airbnb price regression class."""
+
+    def __init__(self) -> None:
+        """Intializer of the class Regressor."""
+
         (self.imp, self.scaler, self.ord_bed,
          self.ord_pol, self.ord_room, self.ohe_neigh,
          self.ohe_property, self.model) = self.load_pickles()
@@ -30,45 +24,56 @@ class Regressor(object):
                           'minimum_nights', 'cancellation_policy']
 
         self.distance = None
-        self.london_center = [51.5073219, -0.1276474]
+        self.london_center = (51.5073219, -0.1276474)
 
-    def load_pickles(self):
-        ans = []
+    @staticmethod
+    def load_pickles() -> list:
+        """Load all pickle files."""
+        files = []
         imp = joblib.load('./pickles/imp.pkl')
-        ans.append(imp)
+        files.append(imp)
         scaler = joblib.load('./pickles/scaler.pkl')
-        ans.append(scaler)
+        files.append(scaler)
         ord_bed = joblib.load('./pickles/ord_bed.pkl')
-        ans.append(ord_bed)
+        files.append(ord_bed)
         ord_pol = joblib.load('./pickles/ord_pol.pkl')
-        ans.append(ord_pol)
+        files.append(ord_pol)
         ord_room = joblib.load('./pickles/ord_room.pkl')
-        ans.append(ord_room)
+        files.append(ord_room)
         ohe_neigh = joblib.load('./pickles/ohe_neigh.pkl')
-        ans.append(ohe_neigh)
+        files.append(ohe_neigh)
         ohe_property = joblib.load('./pickles/ohe_property.pkl')
-        ans.append(ohe_property)
+        files.append(ohe_property)
         model = joblib.load('./pickles/model.pkl')
-        ans.append(model)
+        files.append(model)
 
-        return ans
+        return files
 
-    def preproc(self, df):
-        # Process text
+    def preprocessing(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Feature preprocessing with pre-trained transformers
+        to get numerical feature representation for the regression model.
+
+        :param df: - pandas.Dataframe, dataframe with the entered data.
+        :return df: - pandas.DataFrame, dataframe with transformed data.
+        """
+        # process text
         df.drop(columns=['name', 'description'], inplace=True)
 
         # host_since
-        df['host_since'] = df.host_since.apply(
-            lambda x: max(0, (pd.to_datetime('2018-11-04') - pd.to_datetime(x)).days))
-        # true/false columns
-        df.loc[:, self.binary_columns] = df.loc[:, self.binary_columns].replace([True, False], [1, 0])
-        # lat/lon
+        start_date = pd.to_datetime('2018-11-04')
+        func = lambda x: max(0, (start_date - pd.to_datetime(x)).days)
+        df['host_since'] = df.host_since.apply(func)
 
+        # binary columns
+        df.loc[:, self.binary_columns] = df.loc[:, self.binary_columns].replace([True, False], [1, 0])
+
+        # lat/lon
         df.loc[0, 'to_center'] = haversine((df.lat, df.lon), self.london_center)
         df = df[['to_center'] + list(df.columns)[:-1]]
         df = df.drop(columns=['lat', 'lon'])
         self.distance = df.to_center.values[0]
         df.to_center = df.to_center.apply(np.log)
+
         # room_type
         room_types = list(self.ord_room.categories_[0])
         df.room_type = room_types.index(df.room_type[0])
@@ -83,15 +88,15 @@ class Regressor(object):
 
         # property_type
         trans = self.ohe_property.transform(df.property_type.values.reshape(-1, 1))
-        one = pd.DataFrame(trans.toarray(),
-                           columns=[f'P_{i}' for i in range(len(self.ohe_property.categories_[0]))])
+        new_clmns = [f'P_{i}' for i in range(len(self.ohe_property.categories_[0]))]
+        one = pd.DataFrame(trans.toarray(), columns=new_clmns)
         df = pd.concat((df, one.reindex(df.index)), axis=1)
         df = df.drop(columns=['property_type'])
 
         # neighbourhood_cleansed
         trans = self.ohe_neigh.transform(df.neighbourhood_cleansed.values.reshape(-1, 1))
-        one = pd.DataFrame(trans.toarray(),
-                           columns=[f'N_{i}' for i in range(len(self.ohe_neigh.categories_[0]))])
+        new_clmns = [f'N_{i}' for i in range(len(self.ohe_neigh.categories_[0]))]
+        one = pd.DataFrame(trans.toarray(), columns=new_clmns)
         df = pd.concat((df, one.reindex(df.index)), axis=1)
         df = df.drop(columns=['neighbourhood_cleansed'])
 
@@ -103,37 +108,15 @@ class Regressor(object):
 
         return df
 
-    def predict(self, df):
+    def predict(self, df: pd.DataFrame) -> float:
+        """Make a prediction.
+
+        :param df: - pandas.Dataframe, dataframe with the entered data.
+        :return: - float, predicted price.
+        """
         try:
-            df = self.preproc(df)
+            df = self.preprocessing(df)
             price = self.model.predict(df)[0]
             return np.exp(price)
         except:
-            return None, None
-
-    @staticmethod
-    def text_preproc(sentence):
-        cleaned = re.sub(r'[?|!|\'|"|#]', r'', sentence)
-        cleaned = re.sub(r'[.|,|)|(|\|/]', r' ', cleaned)
-        cleaned = cleaned.strip()
-        sentence = cleaned.replace("\n", " ")
-
-        alpha_sent = ""
-        for word in sentence.split():
-            alpha_word = re.sub('[^a-z A-Z]+', ' ', word)
-            alpha_sent += alpha_word
-            alpha_sent += " "
-        sentence = alpha_sent.strip()
-
-        stop_words = set(stopwords.words('english'))
-        re_stop_words = re.compile(r"\b(" + "|".join(stop_words) + ")\\W", re.I)
-        sentence = re_stop_words.sub(" ", sentence)
-
-        # stemSentence = ""
-        # for word in sentence.split():
-        #     stem = stemmer.stem(word)
-        #     stemSentence += stem
-        #     stemSentence += " "
-        # sentence = stemSentence.strip()
-
-        return sentence
+            return None
